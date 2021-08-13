@@ -72,6 +72,11 @@ type Article struct {
 	ID          int64
 }
 
+func (a *Article) Link() string {
+	articleURL, _ := router.Get("articles.show").URL("id", strconv.FormatInt(a.ID, 10))
+	return articleURL.String()
+}
+
 func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
 	id := getRouteVariable("id", r)
 	article, err := getArticleByID(id)
@@ -98,7 +103,25 @@ func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "访问文章列表")
+	rows, err := db.Query("SELECT * from articles")
+	checkError(err)
+	defer rows.Close()
+	var articles []Article
+	for rows.Next() {
+		var article Article
+		// 2.1 扫描每一行的结果并赋值到一个 article 对象中
+		err := rows.Scan(&article.ID, &article.Title, &article.Body)
+		checkError(err)
+		// 2.2 将 article 追加到 articles 的这个数组中
+		articles = append(articles, article)
+	}
+	err = rows.Err()
+	checkError(err)
+	tmpl, err := template.ParseFiles("resources/views/articles/index.html")
+	checkError(err)
+
+	// 4. 渲染模板，将所有文章的数据传输进去
+	tmpl.Execute(w, articles)
 }
 
 type ArticlesFormData struct {
